@@ -3,6 +3,9 @@ import CookieBanner from './CookieBanner';
 import Impressum from './Impressum';
 import Datenschutz from './Datenschutz';
 
+// --- BILD IMPORT (Lokales Bild für Blur-Effekt) ---
+import mapPlaceholder from './assets/googlemaps.jpg'; 
+
 // --- PLUGINS ---
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -32,19 +35,26 @@ import {
   faHandshake,
   faEnvelopeOpenText,
   faUser,
-  faInfoCircle
+  faInfoCircle,
+  faBuilding,
+  faBriefcase
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 // --- CONFIG ---
-// Deinen Key hier einfügen ODER besser in .env als VITE_TURNSTILE_SITE_KEY
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '0x4AAAAAACMZYCHiONmr4bkm'; 
 
 function App() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   
+  // --- SMART HEADER STATE ---
+  const [showNav, setShowNav] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+
   // Formular State
   const [formData, setFormData] = useState({
+    customerType: 'private', // 'private' oder 'business'
+    company: '', // Nur bei business
     name: '',
     email: '',
     phone: '',
@@ -54,17 +64,37 @@ function App() {
     privacy: false
   });
   const [formStatus, setFormStatus] = useState(null); 
-  const [turnstileToken, setTurnstileToken] = useState(null); // Speichert das Captcha-Ergebnis
+  const [turnstileToken, setTurnstileToken] = useState(null); 
 
   // GLOBALER COOKIE STATE
   const [consent, setConsent] = useState(null);
   const [isBannerOpen, setIsBannerOpen] = useState(false);
   const [legalPage, setLegalPage] = useState(null);
-  const [openFaqIndex, setOpenFaqIndex] = useState(null); // Für FAQ Accordion
+  const [openFaqIndex, setOpenFaqIndex] = useState(null); 
 
   const waNumber = "4915561915890";
   const waLink = `https://wa.me/${waNumber}?text=Hallo,%20ich%20habe%20eine%20Anfrage...`;
 
+  // --- SCROLL LOGIK (Header) ---
+  useEffect(() => {
+    const controlNavbar = () => {
+      if (typeof window !== 'undefined') {
+        if (window.scrollY > lastScrollY && window.scrollY > 100) { 
+          setShowNav(false);
+        } else { 
+          setShowNav(true);
+        }
+        setLastScrollY(window.scrollY);
+      }
+    };
+
+    window.addEventListener('scroll', controlNavbar);
+    return () => {
+      window.removeEventListener('scroll', controlNavbar);
+    };
+  }, [lastScrollY]);
+
+  // Body Lock
   useEffect(() => {
     if (legalPage) {
       document.body.style.overflow = 'hidden';
@@ -74,6 +104,7 @@ function App() {
     return () => { document.body.style.overflow = 'unset'; };
   }, [legalPage]);
 
+  // Cookie Init
   useEffect(() => {
     const stored = localStorage.getItem('cookie-consent');
     if (stored) {
@@ -101,7 +132,7 @@ function App() {
     setOpenFaqIndex(openFaqIndex === index ? null : index);
   };
 
-  // --- HANDLER ---
+  // --- FORM HANDLER ---
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
@@ -109,6 +140,10 @@ function App() {
       [name]: type === 'checkbox' ? checked : value
     }));
   };
+
+  const handleCustomerTypeChange = (type) => {
+    setFormData(prev => ({ ...prev, customerType: type }));
+  }
 
   const handleDateChange = (date) => {
     setFormData(prev => ({ ...prev, date: date }));
@@ -121,7 +156,6 @@ function App() {
   const handleFormSubmit = (e) => {
     e.preventDefault();
     
-    // Einfache Validierung: Captcha muss da sein (außer man testet lokal ohne Key)
     if (!turnstileToken && TURNSTILE_SITE_KEY !== 'DEIN_CLOUDFLARE_SITE_KEY_HIER') {
       alert("Bitte bestätigen Sie, dass Sie ein Mensch sind (Captcha).");
       return;
@@ -130,14 +164,24 @@ function App() {
     setFormStatus('sending');
     setTimeout(() => {
       setFormStatus('success');
-      setFormData({ name: '', email: '', phone: '', date: null, category: '', message: '', privacy: false });
-      setTurnstileToken(null); // Token resetten
+      // Reset Form
+      setFormData({ 
+        customerType: 'private',
+        company: '',
+        name: '', 
+        email: '', 
+        phone: '', 
+        date: null, 
+        category: '', 
+        message: '', 
+        privacy: false 
+      });
+      setTurnstileToken(null); 
       setTimeout(() => setFormStatus(null), 5000);
     }, 1500);
   };
 
   return (
-    // FIX: overflow-x-hidden verhindert seitliches Scrollen auf Handy
     <div className="min-h-screen bg-white text-slate-800 font-sans relative selection:bg-emerald-200 overflow-x-hidden w-full">
       
       {/* --- OVERLAYS --- */}
@@ -150,7 +194,6 @@ function App() {
         onConsentChange={handleConsentChange} 
       />
 
-      {/* FIX: Z-Index erhöht auf 60, damit er über Nav (50) liegt */}
       <a 
         href={waLink}
         target="_blank"
@@ -162,9 +205,10 @@ function App() {
         <FontAwesomeIcon icon={faWhatsapp} size="2x" />
       </a>
 
-      {/* --- NAVIGATION --- */}
-      {/* FIX: Z-Index 50 (Standard) */}
-      <nav className="bg-white shadow-sm sticky top-0 z-50 h-20 border-b border-slate-100 w-full">
+      {/* --- NAVIGATION (SMART SCROLL) --- */}
+      <nav 
+        className={`fixed top-0 w-full z-50 h-20 border-b border-slate-100 bg-white/95 backdrop-blur-md shadow-sm transition-transform duration-300 ease-in-out ${showNav ? 'translate-y-0' : '-translate-y-full'}`}
+      >
         <div className="max-w-7xl mx-auto px-4 h-full flex justify-between items-center">
           <a href="#" className="flex items-center gap-3 group">
             <div className="w-10 h-10 bg-emerald-700 text-white rounded flex items-center justify-center font-bold text-xl group-hover:bg-emerald-800 transition shadow-sm">M</div>
@@ -234,26 +278,6 @@ function App() {
          </div>
       </header>
 
-      {/* --- STATS BAR --- */}
-      <div className="bg-emerald-800 text-white py-12 border-b-4 border-emerald-600 w-full">
-         <div className="max-w-7xl mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center divide-y md:divide-y-0 md:divide-x divide-emerald-700">
-                <div className="p-4">
-                   <div className="text-4xl font-black mb-1 text-emerald-100">100%</div>
-                   <div className="text-emerald-200/80 font-bold uppercase tracking-widest text-xs">Zuverlässigkeit</div>
-                </div>
-                <div className="p-4">
-                   <div className="text-4xl font-black mb-1 text-emerald-100">24h</div>
-                   <div className="text-emerald-200/80 font-bold uppercase tracking-widest text-xs">Antwortgarantie</div>
-                </div>
-                <div className="p-4">
-                   <div className="text-4xl font-black mb-1 text-emerald-100">Top</div>
-                   <div className="text-emerald-200/80 font-bold uppercase tracking-widest text-xs">Preis-Leistung</div>
-                </div>
-            </div>
-         </div>
-      </div>
-
       {/* --- ABLAUF --- */}
       <section id="ablauf" className="py-24 bg-white">
          <div className="max-w-7xl mx-auto px-4">
@@ -314,7 +338,7 @@ function App() {
                   <div className="p-8">
                      <h3 className="text-2xl font-bold text-slate-900 mb-3">Grünpflege</h3>
                      <p className="text-slate-600 mb-6 leading-relaxed">
-                        Wir bringen das richtige Gerät mit – vom Aufsitzmäher bis zur Heckenschere.
+                        Ein gepflegter Garten ist die Visitenkarte Ihrer Immobilie. Wir bringen das richtige Gerät mit.
                      </p>
                      <ul className="space-y-3 text-slate-700 font-medium">
                         <li className="flex items-center gap-3"><FontAwesomeIcon icon={faCheck} className="text-emerald-600"/> Rasenmähen & Vertikutieren</li>
@@ -465,7 +489,6 @@ function App() {
                <h2 className="text-4xl font-black text-slate-900 mt-2">Wie können wir helfen?</h2>
             </div>
             
-            {/* FIX: overflow-hidden auf der Karte verhindert das Rausragen des Deko-Kreises */}
             <div className="bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-slate-100 relative overflow-hidden">
                <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-10 -mt-10 z-0"></div>
 
@@ -479,7 +502,27 @@ function App() {
                  </div>
                ) : (
                  <form className="space-y-6 relative z-10" onSubmit={handleFormSubmit}>
+                    
+                    {/* CUSTOMER TYPE SELECTION */}
+                    <div className="flex gap-4 p-1 bg-slate-100 rounded-xl w-fit mx-auto mb-6">
+                       <button 
+                          type="button" 
+                          onClick={() => handleCustomerTypeChange('private')}
+                          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${formData.customerType === 'private' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                       >
+                          <FontAwesomeIcon icon={faUser} className="mr-2"/> Privat
+                       </button>
+                       <button 
+                          type="button" 
+                          onClick={() => handleCustomerTypeChange('business')}
+                          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${formData.customerType === 'business' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                       >
+                          <FontAwesomeIcon icon={faBuilding} className="mr-2"/> Gewerblich
+                       </button>
+                    </div>
+
                     <div className="grid md:grid-cols-2 gap-6">
+                       {/* NAME */}
                        <div className="space-y-2">
                           <label className="text-sm font-bold text-slate-800">Ihr Name <span className="text-emerald-600">*</span></label>
                           <div className="relative">
@@ -497,36 +540,119 @@ function App() {
                              />
                           </div>
                        </div>
-                       <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-800">E-Mail Adresse <span className="text-emerald-600">*</span></label>
-                          <div className="relative">
-                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                <FontAwesomeIcon icon={faEnvelope} />
+                       
+                       {/* FIRMA (Conditional) oder E-MAIL */}
+                       {formData.customerType === 'business' ? (
+                          <div className="space-y-2 animate-fade-in-down">
+                             <label className="text-sm font-bold text-slate-800">Firmenname <span className="text-slate-400 font-normal">(Optional)</span></label>
+                             <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                   <FontAwesomeIcon icon={faBriefcase} />
+                                </div>
+                                <input 
+                                   type="text" 
+                                   name="company"
+                                   value={formData.company}
+                                   onChange={handleInputChange}
+                                   placeholder="Muster GmbH" 
+                                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 h-[52px] focus:ring-2 focus:ring-emerald-500 outline-none transition" 
+                                />
                              </div>
-                             <input 
-                               type="email" 
-                               name="email"
-                               value={formData.email}
-                               onChange={handleInputChange}
-                               placeholder="max@beispiel.de" 
-                               className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 h-[52px] focus:ring-2 focus:ring-emerald-500 outline-none transition" 
-                               required 
-                             />
                           </div>
-                       </div>
+                       ) : (
+                          <div className="space-y-2">
+                             <label className="text-sm font-bold text-slate-800">E-Mail Adresse <span className="text-emerald-600">*</span></label>
+                             <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                   <FontAwesomeIcon icon={faEnvelope} />
+                                </div>
+                                <input 
+                                   type="email" 
+                                   name="email"
+                                   value={formData.email}
+                                   onChange={handleInputChange}
+                                   placeholder="max@beispiel.de" 
+                                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 h-[52px] focus:ring-2 focus:ring-emerald-500 outline-none transition" 
+                                   required 
+                                />
+                             </div>
+                          </div>
+                       )}
                     </div>
 
-                    <div className="grid md:grid-cols-2 gap-6">
-                       <div className="space-y-2">
-                          <label className="text-sm font-bold text-slate-800">Telefonnummer <span className="text-slate-400 font-normal">(Optional)</span></label>
-                          <PhoneInput
-                            country={'de'}
-                            value={formData.phone}
-                            onChange={handlePhoneChange}
-                            containerClass="!w-full"
-                            // Hinweis: Styling passiert oben im <style> Tag in index.css
-                          />
-                       </div>
+                    {/* Wenn Business, brauchen wir eine extra Zeile für Email & Phone */}
+                    {formData.customerType === 'business' && (
+                        <div className="grid md:grid-cols-2 gap-6 animate-fade-in-down">
+                           <div className="space-y-2">
+                             <label className="text-sm font-bold text-slate-800">E-Mail Adresse <span className="text-emerald-600">*</span></label>
+                             <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                   <FontAwesomeIcon icon={faEnvelope} />
+                                </div>
+                                <input 
+                                   type="email" 
+                                   name="email"
+                                   value={formData.email}
+                                   onChange={handleInputChange}
+                                   placeholder="max@beispiel.de" 
+                                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-3 h-[52px] focus:ring-2 focus:ring-emerald-500 outline-none transition" 
+                                   required 
+                                />
+                             </div>
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-sm font-bold text-slate-800">Telefonnummer <span className="text-slate-400 font-normal">(Optional)</span></label>
+                              <PhoneInput
+                                country={'de'}
+                                value={formData.phone}
+                                onChange={handlePhoneChange}
+                                containerClass="!w-full"
+                                enableAreaCodes={true}
+                                separateDialCode={true}
+                              />
+                           </div>
+                        </div>
+                    )}
+
+                    {/* Wenn Privat, brauchen wir Phone & Datum in einer Zeile */}
+                    {formData.customerType === 'private' && (
+                        <div className="grid md:grid-cols-2 gap-6">
+                           <div className="space-y-2">
+                              <label className="text-sm font-bold text-slate-800">Telefonnummer <span className="text-slate-400 font-normal">(Optional)</span></label>
+                              <PhoneInput
+                                country={'de'}
+                                value={formData.phone}
+                                onChange={handlePhoneChange}
+                                containerClass="!w-full"
+                                enableAreaCodes={true}
+                                separateDialCode={true}
+                              />
+                           </div>
+                           <div className="space-y-2">
+                              <label className="text-sm font-bold text-slate-800">Wunschtermin <span className="text-emerald-600">*</span></label>
+                              <div className="relative w-full">
+                                 <DatePicker 
+                                    selected={formData.date} 
+                                    onChange={handleDateChange} 
+                                    locale="de"
+                                    minDate={new Date()}
+                                    dateFormat="dd.MM.yyyy"
+                                    placeholderText="Datum auswählen"
+                                    className="w-full cursor-pointer" 
+                                    wrapperClassName="w-full"
+                                    required
+                                    onFocus={(e) => e.target.blur()} // Verhindert Keyboard
+                                 />
+                                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 h-[52px]">
+                                    <FontAwesomeIcon icon={faCalendarAlt} />
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                    )}
+
+                    {/* Bei Business fehlt noch das Datum, da wir Email/Phone oben hatten */}
+                    {formData.customerType === 'business' && (
                        <div className="space-y-2">
                           <label className="text-sm font-bold text-slate-800">Wunschtermin <span className="text-emerald-600">*</span></label>
                           <div className="relative w-full">
@@ -538,16 +664,16 @@ function App() {
                                 dateFormat="dd.MM.yyyy"
                                 placeholderText="Datum auswählen"
                                 className="w-full cursor-pointer" 
-                                // Klasse wird im Style-Tag überschrieben, hier nur für Funktionalität
                                 wrapperClassName="w-full"
                                 required
+                                onFocus={(e) => e.target.blur()} // Verhindert Keyboard
                              />
                              <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-slate-400 h-[52px]">
                                 <FontAwesomeIcon icon={faCalendarAlt} />
                              </div>
                           </div>
                        </div>
-                    </div>
+                    )}
 
                     <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-800">Worum geht es? <span className="text-emerald-600">*</span></label>
@@ -598,8 +724,7 @@ function App() {
                       </label>
                     </div>
 
-                    {/* TURNSTILE CAPTCHA */}
-                    <div className="flex justify-center py-2">
+                    <div className="flex justify-center py-2 mt-4">
                       <Turnstile 
                         siteKey={TURNSTILE_SITE_KEY}
                         onSuccess={(token) => setTurnstileToken(token)}
@@ -620,7 +745,70 @@ function App() {
          </div>
       </section>
 
-      {/* --- FOOTER --- */}
+      {/* --- STANDORT & KARTE (MIT BLUR EFFEKT) --- */}
+      <section id="gebiet" className="bg-slate-50 border-t border-slate-200">
+         <div className="flex flex-col md:flex-row h-auto md:h-[500px]">
+            <div className="md:w-1/2 p-10 lg:p-16 flex flex-col justify-center bg-white">
+               <span className="text-emerald-700 font-bold uppercase tracking-wider mb-2 text-sm">Einsatzgebiet</span>
+               <h3 className="text-3xl font-black text-slate-900 mb-6">Hier sind wir unterwegs.</h3>
+               <p className="text-slate-600 text-lg mb-8 leading-relaxed">
+                  Unser Hauptsitz in Delbrück ermöglicht uns kurze Anfahrtswege im gesamten Kreis Paderborn. 
+               </p>
+               <div className="flex flex-col gap-4">
+                  <div className="flex items-center gap-4 bg-slate-50 p-5 rounded-lg border border-slate-100">
+                     <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center">
+                        <FontAwesomeIcon icon={faMapMarkerAlt} className="text-xl"/>
+                     </div>
+                     <div>
+                        <div className="font-bold text-slate-900">Delbrück (Zentrale)</div>
+                        <div className="text-sm text-slate-500">Lange Straße 1, 33129 Delbrück</div>
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            <div className="md:w-1/2 bg-slate-200 relative h-[400px] md:h-auto overflow-hidden group">
+               {consent === 'all' ? (
+                 <iframe 
+                   width="100%" 
+                   height="100%" 
+                   style={{border:0}}
+                   loading="lazy" 
+                   allowFullScreen 
+                   src="https://maps.google.com/maps?q=Delbr%C3%BCck&t=&z=11&ie=UTF8&iwloc=&output=embed"
+                   title="Standort Delbrück"
+                   className="absolute inset-0"
+                 ></iframe>
+               ) : (
+                 <>
+                    <div 
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-110"
+                        style={{ 
+                            backgroundImage: `url(${mapPlaceholder})`, 
+                            filter: 'blur(8px)'
+                        }} 
+                    ></div>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 backdrop-blur-sm text-center p-8 z-10">
+                        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mb-4 text-emerald-600 shadow-lg">
+                           <FontAwesomeIcon icon={faLock} size="2x" />
+                        </div>
+                        <h4 className="text-lg font-bold text-slate-800 mb-2">Karte deaktiviert</h4>
+                        <p className="text-slate-600 text-sm max-w-xs mb-6 font-medium">
+                           Bitte akzeptieren Sie Cookies, um die Karte zu sehen (Datenschutz).
+                        </p>
+                        <button 
+                           onClick={requestConsent} 
+                           className="bg-emerald-600 text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 transition shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                        >
+                           Karte freischalten
+                        </button>
+                    </div>
+                 </>
+               )}
+            </div>
+         </div>
+      </section>
+
       <footer className="bg-[#1a1a1a] text-neutral-400 py-16 border-t border-neutral-800 text-sm">
          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-12">
             <div className="md:col-span-2">
