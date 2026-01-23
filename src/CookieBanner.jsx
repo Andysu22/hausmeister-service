@@ -1,109 +1,97 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronDown, faChevronUp } from '@fortawesome/free-solid-svg-icons';
+import { faCookieBite, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-// Wir empfangen 'isOpen' als Prop von der App
-const CookieBanner = ({ isOpen, onConsentChange, onClose }) => {
-  const [showDetails, setShowDetails] = useState(false);
-  const [animateIn, setAnimateIn] = useState(false);
+// Props hinzugefügt: onOpenImpressum, onOpenDatenschutz
+const CookieBanner = ({ isOpen, onClose, onConsentChange, onOpenImpressum, onOpenDatenschutz }) => {
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => setAnimateIn(true), 10);
-    } else {
-      setAnimateIn(false);
-    }
-  }, [isOpen]);
+  if (!isOpen) return null;
 
-  const handleDecision = (decision) => {
-    setAnimateIn(false);
-    setTimeout(() => {
-      localStorage.setItem('cookie-consent', decision);
-      onConsentChange(decision);
-      onClose(); 
-    }, 500);
+  const handleAcceptAll = () => {
+    localStorage.setItem('cookie-consent', 'all');
+    onConsentChange('all');
+    onClose();
   };
 
-  if (!isOpen && !animateIn) return null; 
+  const handleDecline = () => {
+    localStorage.setItem('cookie-consent', 'essential');
+    onConsentChange('essential');
+    onClose();
+  };
 
   return (
-    <div 
-      className={`
-        fixed bottom-4 z-[9999] 
-        /* Mobile: Links und Rechts Abstand */
-        left-4 right-4 
-        /* Desktop (ab md): Links/Rechts 0 und Margin Auto zum Zentrieren */
-        md:left-0 md:right-0 md:mx-auto md:max-w-md 
-        transition-transform duration-500 ease-in-out 
-        ${animateIn ? 'translate-y-0' : 'translate-y-[150%]'}
-      `}
-    >
-      <div className="bg-white text-slate-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.15)] border border-slate-200 overflow-hidden">
+    <div className="fixed inset-x-0 bottom-0 z-[100] p-4 md:p-6 flex justify-center items-end pointer-events-none">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 p-6 md:p-8 max-w-4xl w-full pointer-events-auto transform transition-all duration-500 ease-out translate-y-0 opacity-100 animate-slide-up">
         
-        <div className="p-6">
-          <h3 className="font-bold text-lg mb-2 text-slate-900">Datenschutz</h3>
-          
-          <p className="text-xs leading-relaxed text-slate-500 mb-4">
-            Wir nutzen Google Maps & WhatsApp. Damit diese funktionieren, klicken Sie bitte auf <span className="font-bold text-emerald-700">"Alle akzeptieren"</span>. 
-            Ohne Zustimmung bleiben die Funktionen deaktiviert.
-            
-            <button 
-              onClick={() => setShowDetails(!showDetails)} 
-              className="ml-2 text-emerald-600 font-bold hover:underline inline-flex items-center gap-1"
-            >
-              {showDetails ? 'Verbergen' : 'Details'}
-              <FontAwesomeIcon icon={showDetails ? faChevronUp : faChevronDown} size="xs"/>
-            </button>
-          </p>
-
-          {showDetails && (
-            <div className="mb-4 bg-slate-50 p-3 rounded-lg text-[10px] text-slate-500 border border-slate-100 animate-fade-in-down">
-              <ul className="space-y-2">
-                <li className="flex justify-between items-center">
-                  <span className="font-bold text-slate-700">Essenziell</span> 
-                  <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold text-[9px]">Immer an</span>
-                </li>
-                <li className="flex justify-between items-center">
-                  <span className="font-bold text-slate-700">Externe Medien</span> 
-                  <span className="text-slate-400">Google Maps, WhatsApp</span>
-                </li>
-              </ul>
-              <p className="mt-2 text-[9px] text-slate-400 leading-tight">
-                Daten werden ggf. in die USA (Google/Meta) übertragen.
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <button 
-              onClick={() => handleDecision('all')}
-              className="w-full py-3 rounded-xl font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 active:scale-95 transition-all shadow-md shadow-emerald-900/10"
-            >
-              Alle akzeptieren
-            </button>
-            
-            <div className="grid grid-cols-2 gap-2">
-              <button 
-                onClick={() => handleDecision('essential')}
-                className="py-2.5 rounded-xl font-medium text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 transition-all"
-              >
-                Nur Notwendige
-              </button>
-              <button 
-                onClick={() => handleDecision('reject')}
-                className="py-2.5 rounded-xl font-medium text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 transition-all"
-              >
-                Ablehnen
-              </button>
-            </div>
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+          {/* Icon */}
+          <div className="hidden md:flex bg-emerald-50 text-emerald-600 w-16 h-16 rounded-2xl items-center justify-center shrink-0">
+             <FontAwesomeIcon icon={faCookieBite} size="2x" />
           </div>
 
-          <div className="mt-4 flex justify-center gap-4 text-[10px] text-slate-400">
-             <a href="#datenschutz" className="hover:text-emerald-600 transition-colors">Datenschutzerklärung</a>
-             <a href="#impressum" className="hover:text-emerald-600 transition-colors">Impressum</a>
-          </div>
+          <div className="flex-1">
+             <h3 className="text-xl font-bold text-slate-900 mb-2 flex items-center gap-3">
+                <span className="md:hidden text-emerald-600"><FontAwesomeIcon icon={faCookieBite}/></span>
+                Wir nutzen Cookies
+             </h3>
+             <p className="text-slate-600 text-sm leading-relaxed mb-4">
+                Wir verwenden Cookies, um Ihnen das beste Erlebnis auf unserer Website zu bieten. 
+                Dazu zählen Cookies für den Betrieb der Seite sowie solche für anonyme Statistikzwecke, 
+                Komfort-Einstellungen (z.B. Google Maps) oder zur Anzeige personalisierter Inhalte. 
+                <br className="mb-2 block"/>
+                Weitere Informationen finden Sie in unserer{" "}
+                <button onClick={onOpenDatenschutz} className="text-emerald-600 font-bold hover:underline">
+                  Datenschutzerklärung
+                </button>{" "}
+                und im{" "}
+                <button onClick={onOpenImpressum} className="text-emerald-600 font-bold hover:underline">
+                  Impressum
+                </button>.
+             </p>
 
+             {detailsOpen && (
+               <div className="mb-6 bg-slate-50 p-4 rounded-xl text-sm space-y-3 border border-slate-100 animate-fade-in">
+                  <div className="flex items-start gap-3">
+                     <div className="text-emerald-600 mt-0.5"><FontAwesomeIcon icon={faCheck} /></div>
+                     <div>
+                        <span className="font-bold text-slate-800 block">Notwendig</span>
+                        <span className="text-slate-500 text-xs">Technisch erforderliche Cookies für die Grundfunktionen.</span>
+                     </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                     <div className="text-emerald-600 mt-0.5"><FontAwesomeIcon icon={faCheck} /></div>
+                     <div>
+                        <span className="font-bold text-slate-800 block">Funktional (Maps, Medien)</span>
+                        <span className="text-slate-500 text-xs">Ermöglicht das Laden von Karten (Google Maps) und externen Inhalten.</span>
+                     </div>
+                  </div>
+               </div>
+             )}
+
+             <div className="flex flex-col sm:flex-row gap-3">
+                <button 
+                  onClick={handleAcceptAll}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-200 flex-1"
+                >
+                  Alles akzeptieren
+                </button>
+                <button 
+                  onClick={handleDecline}
+                  className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-6 py-3 rounded-xl font-bold text-sm transition-all flex-1"
+                >
+                  Nur Essenzielle
+                </button>
+                <button 
+                  onClick={() => setDetailsOpen(!detailsOpen)}
+                  className="text-slate-400 hover:text-slate-600 text-xs font-medium px-4 py-3 underline decoration-slate-300 underline-offset-4 transition-colors"
+                >
+                  {detailsOpen ? 'Details verbergen' : 'Details anzeigen'}
+                </button>
+             </div>
+          </div>
         </div>
+
       </div>
     </div>
   );
